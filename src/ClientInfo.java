@@ -1,19 +1,25 @@
 import java.net.*;
 
 /**
- * Created by Наташа on 13.10.2016.
+ * только информация для списка
  */
 public class ClientInfo {
     private Socket socket;
-    private String name;
-    public ServerSender sender;
-    //listener/reader
+    private String name = "";
 
     public ClientInfo(Socket s){
         socket = s;
-        sender = new ServerSender(socket);
-        sender.start();
     }
 
+    public String getName(){
+        return name;
+    }
 
+    public void setName(String s){
+        name = s;
+    }
+
+    public Socket getSocket(){
+        return socket;
+    }
 }
