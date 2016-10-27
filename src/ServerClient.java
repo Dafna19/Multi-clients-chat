@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * если клиента нет - как-то оформить! +
  * отправляю сама себе +
  * задержать цикл! +
- * 
+ * <p>
  * под одним логином несколько пользователей
  */
 public class ServerClient extends Thread {
@@ -43,12 +43,13 @@ public class ServerClient extends Thread {
                 String login, password;
                 login = in.readUTF();
                 password = in.readUTF();
-                if (logins.containsKey(login))
-                    if (logins.get(login).equals(password)) {//совпало
-                        out.writeUTF("Welcome");
-                        myName = login;
-                        break;
-                    }
+                if (!allClients.containsKey(login))//чтобы второй под тем же именем не зашел
+                    if (logins.containsKey(login))
+                        if (logins.get(login).equals(password)) {//совпало
+                            out.writeUTF("Welcome");
+                            myName = login;
+                            break;
+                        }
                 new DataOutputStream(socket.getOutputStream()).writeUTF("Incorrect login or password");
             }
             while (true) {
@@ -81,7 +82,7 @@ public class ServerClient extends Thread {
                 try {
                     new DataOutputStream(s.getOutputStream()).writeUTF(line);
                 } catch (IOException e) {
-                   // e.printStackTrace();
+                    // e.printStackTrace();
                 }
     }
 }
