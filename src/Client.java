@@ -11,7 +11,7 @@ import java.util.Scanner;
  * По умолчанию сообщение посылается всем участникам чата
  * Есть команда послать сообщение конкретное пользователи (@senduser Vasya)
  * Программа работает по протоколу TCP.
- *
+ * <p>
  * * * файл с логинами и паролями пользователей
  */
 //java Client port(0) ipAddr(1)
@@ -30,11 +30,9 @@ public class Client {
         out = new DataOutputStream(socket.getOutputStream());
         keyboard = new BufferedReader(new InputStreamReader(System.in));
         listener = new Thread(new FromServer());
-        listener.start();
     }
 
     public static void main(String[] args) throws IOException {
-        System.out.println("Welcome!");
         int port = Integer.parseInt(args[0]);// порт, к которому привязывается сервер
         //String address = "localhost";//"127.0.0.1"// это IP-адрес компьютера, где исполняется наша серверная программа.
         new Client(args[1], port).run();
@@ -50,7 +48,24 @@ public class Client {
     }
 
     public void run() {//отправляет на сервер
-        System.out.print("write your name");
+        try {
+            while (true) {
+                System.out.println("write your login:");
+                String line = keyboard.readLine();
+                out.writeUTF(line);
+                out.flush();
+                System.out.println("write your password:");
+                line = keyboard.readLine();
+                out.writeUTF(line);
+                out.flush();
+                if(confirm()){//если пароль верный
+                    listener.start();
+                    break;
+                }
+            }
+        } catch (Exception x) {
+            x.printStackTrace();
+        }
         try {
             while (true) {
                 String line;
@@ -71,13 +86,21 @@ public class Client {
         }
     }
 
+    private boolean confirm() throws IOException {
+        String line = in.readUTF();
+        System.out.println(line);
+        if (line.equals("Welcome"))
+            return true;
+        return false;
+    }
+
     private class FromServer implements Runnable {//принимает сообщения
 
         public void run() {
             try {
                 while (true) {
                     String line;
-                    line = in.readUTF(); // ждем пока сервер отошлет строку текста.
+                    line = in.readUTF(); // ждем пока сервер отошлет строку текста
                     System.out.println(line);
                 }
             } catch (IOException e) {
