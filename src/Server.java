@@ -18,7 +18,7 @@ import java.util.LinkedList;
  * Сервер подключает клиентов и только
  *
  */
-//java Client port(0) ipAddr(1)
+//java Server port(0)
 public class Server {
     private LinkedList<ClientInfo> clients = new LinkedList<>();
 
@@ -35,7 +35,7 @@ public class Server {
                 synchronized (clients){
                     clients.add(info);  //добавляем в список
                 }
-                ServerClient client = new ServerClient(socket, clients);
+                ServerClient client = new ServerClient(info, clients);
                 client.start(); //запускаем
             } catch (IOException e) {
                 e.printStackTrace();

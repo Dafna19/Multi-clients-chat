@@ -8,12 +8,14 @@ import java.util.ListIterator;
  */
 public class ServerClient extends Thread {
     private LinkedList<ClientInfo> allClients;
+    private ClientInfo myInfo;
     private Socket socket;
     private String myName = "";
     public DataInputStream in;
 
-    public ServerClient(Socket s, LinkedList list) {
-        socket = s;
+    public ServerClient(ClientInfo c, LinkedList list) {
+        myInfo = c;
+        socket = myInfo.getSocket();
         allClients = list;
         try {
             in = new DataInputStream(socket.getInputStream());
@@ -27,45 +29,57 @@ public class ServerClient extends Thread {
             while (true) {
                 String line;
                 line = in.readUTF();
-                //клмент посылает без имени!
                 if (line.contains("@quit")) {
-                    int space = line.indexOf(" ");//находим конец имени
-                    String name = line.substring(0, space-1);//без ":"
-                    System.out.println(name + " is quited");
-
-                    //как-то удалить его из списка!
-                }
-                else if(line.contains("@")){//отправляем кому-то
-                    int at = line.indexOf("@");
-                    int space = line.indexOf(" ", at);//находим конец имени
-                    String name = line.substring(at+1, space);//имя получателя
-                    line = line.substring(space+1);
-                    //поиск клиента в списке
+                    sendAll(myName + " is quited");
                     synchronized (allClients){
+                        allClients.remove(myInfo);
+                    } // удалить его из списка! И отправить всем, что он вышел
+                } else if (line.contains("@senduser")) {//отправляем кому-то
+                    int end = line.indexOf(" ", "@senduser".length() + 1);//находим конец имени
+                    String name = line.substring("@senduser".length() + 1, end);//имя получателя
+                    line = line.substring(end + 1);
+                    //поиск клиента в списке
+                    synchronized (allClients) {
                         ListIterator<ClientInfo> it = allClients.listIterator();
                         while (it.hasNext()) {
                             ClientInfo receiver = it.next();
-                            if(name.equals(receiver.getName())){
+                            if (name.equals(receiver.getName())) {
                                 new DataOutputStream(receiver.getSocket().getOutputStream()).writeUTF(myName + ": " + line);//отправляем
+                                break;
                             }
                         }
                     }
-                }
-                else
-                    synchronized (allClients) { //отправляет всем
-                        ListIterator<ClientInfo> it = allClients.listIterator();
-                        while (it.hasNext()) {
-                            Socket toSocket =  it.next().getSocket();
-                            if (!toSocket.equals(socket))//себе не отправлять
-                                try {
-                                    new DataOutputStream(toSocket.getOutputStream()).writeUTF(myName + ": " + line);//отправляем всем
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                }
-                        }
+                } else if (line.contains("@name")){
+                    myName = line.substring("@name".length() + 1);
+                    synchronized (allClients){//добавляем имя в список
+                        myInfo.setName(myName);//добавиться?
+                        /*ListIterator<ClientInfo> it = allClients.listIterator();
+                        while (it.hasNext()){
+                            if(it.next().equals(myInfo)){
+                                it.previous().setName(myName);
+                                break;
+                            }
+                        }*/
                     }
+                }
+                else sendAll(myName + ": " + line);
             }
         } catch (IOException e) {//socket closed
+        }
+    }
+
+    private void sendAll(String line){
+        synchronized (allClients) { //отправляет всем
+            ListIterator<ClientInfo> it = allClients.listIterator();
+            while (it.hasNext()) {
+                ClientInfo toClient = it.next();
+                if (!toClient.equals(myInfo))//себе не отправлять
+                    try {
+                        new DataOutputStream(toClient.getSocket().getOutputStream()).writeUTF(line);//отправляем всем
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+            }
         }
     }
 }
