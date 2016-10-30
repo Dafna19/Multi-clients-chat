@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * отправляю сама себе +
  * задержать цикл! +
  * <p>
- * под одним логином несколько пользователей
+ * под одним логином несколько пользователей +
  */
 public class ServerClient extends Thread {
     private ConcurrentHashMap<String, Socket> allClients;

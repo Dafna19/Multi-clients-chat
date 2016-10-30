@@ -78,8 +78,6 @@ public class Client {
                     socketClose();
                     break;
                 }
-                if (line.contains("@name"))
-                    name = line.substring("@name".length() + 1);
             }
         } catch (Exception x) {
             x.printStackTrace();
