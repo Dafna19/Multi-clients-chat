@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.*;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -16,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * задержать цикл! +
  * <p>
  * под одним логином несколько пользователей +
+ * не удаляет клиента после выхода
  */
 public class ServerClient extends Thread {
     private ConcurrentHashMap<String, Socket> allClients;
@@ -58,8 +60,13 @@ public class ServerClient extends Thread {
                 line = in.readUTF();
                 if (line.contains("@quit")) {
                     sendAll(myName + " is quited");
-                    allClients.remove(myName);
-                    //break; ?
+                    /*******/
+                    System.out.println("REMOVING " + myName + " -> " + allClients.get(myName));
+                    /*******/
+                    if (allClients.remove(myName).equals(socket))
+                        System.out.println("REMOVED SUCCESSFULLY");
+                    else System.out.println("REMOVING FAILED");
+                    /*******/
                 } else if (line.contains("@senduser")) {//отправляем кому-то
                     int end = line.indexOf(" ", "@senduser".length() + 1);//находим конец имени
                     String name = line.substring("@senduser".length() + 1, end);//имя получателя
@@ -69,7 +76,19 @@ public class ServerClient extends Thread {
                         new DataOutputStream(allClients.get(name).getOutputStream()).writeUTF(myName + ": " + line);
                     else
                         out.writeUTF(name + " is not online.");
-                } else sendAll(myName + ": " + line);
+                }
+                /*****************/
+                else if (line.equals("show clients")) {//показывает список подключенных пользователей
+                    if (allClients.isEmpty())
+                        out.writeUTF("No clients yet");
+                    else {
+                        out.writeUTF("clients:");
+                        for (Map.Entry<String, Socket> entry : allClients.entrySet())
+                            out.writeUTF(entry.getKey() + " " + entry.getValue());
+                    }
+                }
+                /****************/
+                else sendAll(myName + ": " + line);
             }
         } catch (IOException e) {//socket closed
         }
