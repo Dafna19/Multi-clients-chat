@@ -5,8 +5,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * пт 3пара бм
- * вт/чт
  * здесь происходит отправка и прием сообщений
  * <p>
  * map! +
@@ -17,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * задержать цикл! +
  * <p>
  * под одним логином несколько пользователей +
- * не удаляет клиента после выхода
+ * не удаляет клиента после выхода +
  */
 public class ServerClient extends Thread {
     private ConcurrentHashMap<String, Socket> allClients;
@@ -60,34 +58,22 @@ public class ServerClient extends Thread {
                 line = in.readUTF();
                 if (line.contains("@quit")) {
                     sendAll(myName + " is quited");
-                    /*******/
-                    System.out.println("REMOVING " + myName + " -> " + allClients.get(myName));
-                    /*******/
-                    if (allClients.remove(myName).equals(socket))
-                        System.out.println("REMOVED SUCCESSFULLY");
-                    else System.out.println("REMOVING FAILED");
-                    /*******/
+                    allClients.remove(myName);
+                    break;
                 } else if (line.contains("@senduser")) {//отправляем кому-то
                     int end = line.indexOf(" ", "@senduser".length() + 1);//находим конец имени
-                    String name = line.substring("@senduser".length() + 1, end);//имя получателя
-                    line = line.substring(end + 1);
-                    //поиск клиента в списке
-                    if (allClients.containsKey(name))
-                        new DataOutputStream(allClients.get(name).getOutputStream()).writeUTF(myName + ": " + line);
-                    else
-                        out.writeUTF(name + " is not online.");
-                }
-                /*****************/
-                else if (line.equals("show clients")) {//показывает список подключенных пользователей
-                    if (allClients.isEmpty())
-                        out.writeUTF("No clients yet");
+                    if (end > line.length() || end == -1)//пустая строка
+                        out.writeUTF("Empty string is not allowed.");
                     else {
-                        out.writeUTF("clients:");
-                        for (Map.Entry<String, Socket> entry : allClients.entrySet())
-                            out.writeUTF(entry.getKey() + " " + entry.getValue());
+                        String name = line.substring("@senduser".length() + 1, end);//имя получателя
+                        line = line.substring(end + 1);
+                        //поиск клиента в списке
+                        if (allClients.containsKey(name))
+                            new DataOutputStream(allClients.get(name).getOutputStream()).writeUTF(myName + ": " + line);
+                        else
+                            out.writeUTF(name + " is not online.");
                     }
                 }
-                /****************/
                 else sendAll(myName + ": " + line);
             }
         } catch (IOException e) {//socket closed

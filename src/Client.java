@@ -55,6 +55,9 @@ public class Client {
                 out.writeUTF(line);
                 out.flush();
                 System.out.println("write your password:");
+                /*
+                * придумать, как сделать пароль звёздочками
+                * */
                 line = keyboard.readLine();
                 out.writeUTF(line);
                 out.flush();

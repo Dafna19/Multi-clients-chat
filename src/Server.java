@@ -31,7 +31,6 @@ public class Server {
         while (input.hasNextLine()) {
             logins.put(input.next(), input.next());//login, password
         }
-        new Thread(new Service()).start();
     }
 
     public static void main(String[] args) throws IOException {
@@ -54,31 +53,4 @@ public class Server {
 
     }
 
-
-    private class Service implements Runnable {
-        BufferedReader keyboard;
-
-        public void run() {
-            keyboard = new BufferedReader(new InputStreamReader(System.in));
-            while (true) {
-                try {
-                    String command = keyboard.readLine();
-                    if (command.equals("show clients")) {//показывает список подключенных пользователей
-                        if (clients.isEmpty())
-                            System.out.println("No clients yet");
-                        else
-                            for (Map.Entry<String, Socket> entry : clients.entrySet())
-                                System.out.println(entry.getKey() + " " + entry.getValue());
-                        System.out.println();
-                    } else if (command.equals("show logins")) {//показывает список зарегистрированных пользователей
-                        for (Map.Entry<String, String> entry : logins.entrySet())
-                            System.out.println("login: " + entry.getKey() + "\tpassword: " + entry.getValue());
-                        System.out.println();
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-    }
 }
