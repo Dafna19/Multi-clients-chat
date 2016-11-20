@@ -1,5 +1,7 @@
 import java.io.*;
 import java.net.*;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,14 +21,15 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ServerClient extends Thread {
     private ConcurrentHashMap<String, Socket> allClients;
-    private ConcurrentHashMap<String, String> logins;
     private Socket socket;
     private String myName = "";
     public DataInputStream in;
     public DataOutputStream out;
+    private SimpleDateFormat date = new SimpleDateFormat("HH:mm:ss z dd.MM.yyyy");
+    private FileWriter logFile;
 
-    public ServerClient(Socket s, ConcurrentHashMap<String, Socket> list, ConcurrentHashMap<String, String> map) {
-        logins = map;
+    public ServerClient(Socket s, ConcurrentHashMap<String, Socket> list, FileWriter log) {
+        logFile = log;
         socket = s;
         allClients = list;
         try {
@@ -38,45 +41,58 @@ public class ServerClient extends Thread {
     }
 
     public void run() {
-        try {//сначала проверить логин
+        try {
+            myName = in.readUTF();
+            allClients.put(myName, socket);//добавили себя в список
+            logFile.write("\nNew client \"" + myName + "\" ip: " + socket.getLocalAddress() + " port: " + socket.getPort() + " at " + date.format(new Date()));
+            logFile.flush();
+            System.out.println(myName + " in " + Thread.currentThread().getName());
+
             while (true) {
-                String login, password;
-                login = in.readUTF();
-                password = in.readUTF();
-                if (!allClients.containsKey(login))//чтобы второй под тем же именем не зашел
-                    if (logins.containsKey(login))
-                        if (logins.get(login).equals(password)) {//совпало
-                            out.writeUTF("Welcome");
-                            myName = login;
-                            break;
-                        }
-                new DataOutputStream(socket.getOutputStream()).writeUTF("Incorrect login or password");
-            }
-            while (true) {
-                allClients.put(myName, socket);//добавили себя в список
                 String line;
                 line = in.readUTF();
                 if (line.contains("@quit")) {
-                    sendAll(myName + " is quited");
+                    sendAll(myName + " came out");
                     allClients.remove(myName);
+                    logFile.write("\nClient \"" + myName + "\" came out at " + date.format(new Date()));
+                    logFile.flush();
                     break;
-                } else if (line.contains("@senduser")) {//отправляем кому-то
-                    int end = line.indexOf(" ", "@senduser".length() + 1);//находим конец имени
-                    if (end > line.length() || end == -1)//пустая строка
-                        out.writeUTF("Empty string is not allowed.");
-                    else {
-                        String name = line.substring("@senduser".length() + 1, end);//имя получателя
-                        line = line.substring(end + 1);
-                        //поиск клиента в списке
-                        if (allClients.containsKey(name))
-                            new DataOutputStream(allClients.get(name).getOutputStream()).writeUTF(myName + ": " + line);
-                        else
-                            out.writeUTF(name + " is not online.");
+                } else if (line.contains("@sendfile")) {//отправляем файл
+                    sendAll(line);//переправляем всем
+                    sendAll(myName);
+                    long size = in.readLong();
+                    System.out.println(" size = " + size);
+                    //рассылаем всем размер
+                    for (Socket s : allClients.values())
+                        if (!s.equals(socket))
+                            new DataOutputStream(s.getOutputStream()).writeLong(size);
+
+                    byte[] buf = new byte[1024];
+                    int count, all = 0;
+                    double limit = Math.ceil((double) size / 1024);
+                    System.out.println("limit = " + (int)limit);
+                    for (int i = 0; i < (int)limit; i++) {
+                        count = in.read(buf);
+                        all += count;
+                        System.out.println(" count = " + count + "  all = " + all + "  i = " + i);
+                        for (Socket s : allClients.values())
+                            if (!s.equals(socket))
+                                try {
+                                    //посылаем всем файл по частям
+                                    new DataOutputStream(s.getOutputStream()).write(buf, 0, count);
+                                } catch (SocketException z) {
+                                    System.out.println(" can't send file ");
+                                    z.printStackTrace();
+                                    break;
+                                }
                     }
-                }
-                else sendAll(myName + ": " + line);
+                    System.out.println(" send " + all + " bytes");
+                    //отсылаем всем имя отправителя
+                   // sendAll(myName); System.out.println("send name");
+                } else sendAll(myName + ": " + line);
             }
         } catch (IOException e) {//socket closed
+            e.printStackTrace();
         }
     }
 

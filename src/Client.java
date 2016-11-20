@@ -5,16 +5,10 @@ import java.util.Scanner;
 /**
  * Адреса и порты задаются через командную строку:
  * клиенту --- куда соединяться, серверу --- на каком порту слушать.
- * Написать текстовый многопользовательский чат.
- * Пользователь управляет клиентом. На сервере пользователя нет.
- * Сервер занимается пересылкой сообщений между клиентами
- * По умолчанию сообщение посылается всем участникам чата
- * Есть команда послать сообщение конкретное пользователи (@senduser Vasya)
- * Программа работает по протоколу TCP.
- * <p>
- * * * файл с логинами и паролями пользователей
+ *
+ * директория задаётся в командной строке
  */
-//java Client port(0) ipAddr(1)
+//java Client port(0) ipAddr(1) dir(2)
 public class Client {
     private Socket socket;
     private String name;
@@ -22,20 +16,22 @@ public class Client {
     private DataOutputStream out;
     private BufferedReader keyboard;
     private Thread listener;
+    private String directory;
 
-    public Client(String adr, int port) throws IOException {
+    public Client(String adr, int port, String dir) throws IOException {
         InetAddress ipAddress = InetAddress.getByName(adr); // создаем объект который отображает вышеописанный IP-адрес
         socket = new Socket(ipAddress, port); // создаем сокет используя IP-адрес и порт сервера
         in = new DataInputStream(socket.getInputStream());
         out = new DataOutputStream(socket.getOutputStream());
         keyboard = new BufferedReader(new InputStreamReader(System.in));
         listener = new Thread(new FromServer());
+        directory = dir;
     }
 
     public static void main(String[] args) throws IOException {
         int port = Integer.parseInt(args[0]);// порт, к которому привязывается сервер
-        //String address = "localhost";//"127.0.0.1"// это IP-адрес компьютера, где исполняется наша серверная программа.
-        new Client(args[1], port).run();
+        //String address = "localhost","127.0.0.1" это IP-адрес сервера
+        new Client(args[1], port, args[2]).run();
     }
 
     private void socketClose() {
@@ -49,23 +45,13 @@ public class Client {
 
     public void run() {//отправляет на сервер
         try {
-            while (true) {
-                System.out.println("write your login:");
-                String line = keyboard.readLine();
-                out.writeUTF(line);
-                out.flush();
-                System.out.println("write your password:");
-                /*
-                * придумать, как сделать пароль звёздочками
-                * */
-                line = keyboard.readLine();
-                out.writeUTF(line);
-                out.flush();
-                if(confirm()){//если пароль верный
-                    listener.start();
-                    break;
-                }
-            }
+            System.out.println("my directory is " + directory);
+            System.out.println("write your login:");
+            String line = keyboard.readLine();
+            out.writeUTF(line);
+            listener.start();
+            System.out.println("Welcome!");
+
         } catch (Exception x) {
             x.printStackTrace();
         }
@@ -81,18 +67,23 @@ public class Client {
                     socketClose();
                     break;
                 }
+                if (line.contains("@sendfile")) {
+                    String fileName = line.substring("@sendfile".length() + 1);
+                    File file = new File(directory + fileName);
+                    out.writeLong(file.length());//отправляем размер
+                    FileInputStream inputFile = new FileInputStream(file);
+                    byte[] buf = new byte[1024];
+                    int count;
+                    while ((count = inputFile.read(buf)) != -1) {
+                        out.write(buf, 0, count);//отсылаем файл
+                        out.flush();
+                    }
+                    System.out.println("File was successfully sent");
+                }
             }
         } catch (Exception x) {
             x.printStackTrace();
         }
-    }
-
-    private boolean confirm() throws IOException {
-        String line = in.readUTF();
-        System.out.println(line);
-        if (line.equals("Welcome"))
-            return true;
-        return false;
     }
 
     private class FromServer implements Runnable {//принимает сообщения
@@ -102,9 +93,32 @@ public class Client {
                 while (true) {
                     String line;
                     line = in.readUTF(); // ждем пока сервер отошлет строку текста
-                    System.out.println(line);
+
+                    if (line.contains("@sendfile")) {//принимаем файл
+                        String fileName = line.substring("@sendfile".length() + 1);
+                        String name = in.readUTF();
+                        long size = in.readLong();
+                       // System.out.println("receiving file " + fileName + " size = " + size);
+                        byte[] buf = new byte[1024];
+                        FileOutputStream outputFile = new FileOutputStream(directory + fileName);
+                        int count, all = 0;
+                        double limit = Math.ceil((double) size / 1024);
+                        for (int i = 0; i < (int) limit; i++) {
+                            count = in.read(buf);
+                            all += count;
+                            outputFile.write(buf, 0, count);//записываем файл
+                            outputFile.flush();
+                            if (all == size) {
+                                System.out.println("broke");
+                                break;
+                            }
+                        }
+                        System.out.println("received \"" + fileName + "\" (" + all + " bytes) from " + name);
+                    } else
+                        System.out.println(line);
                 }
             } catch (IOException e) {
+                // e.printStackTrace();
                 socketClose();
             } finally {
                 socketClose();
