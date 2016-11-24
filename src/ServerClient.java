@@ -8,16 +8,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * здесь происходит отправка и прием сообщений
- * <p>
- * map! +
- * логин пароль на одной строчке +
- * повторный ввод логина +
- * если клиента нет - как-то оформить! +
- * отправляю сама себе +
- * задержать цикл! +
- * <p>
- * под одним логином несколько пользователей +
- * не удаляет клиента после выхода +
  */
 public class ServerClient extends Thread {
     private ConcurrentHashMap<String, Socket> allClients;
@@ -46,52 +36,63 @@ public class ServerClient extends Thread {
             allClients.put(myName, socket);//добавили себя в список
             logFile.write("\nNew client \"" + myName + "\" ip: " + socket.getLocalAddress() + " port: " + socket.getPort() + " at " + date.format(new Date()));
             logFile.flush();
-            System.out.println(myName + " in " + Thread.currentThread().getName());
 
             while (true) {
-                String line;
-                line = in.readUTF();
-                if (line.contains("@quit")) {
-                    sendAll(myName + " came out");
-                    allClients.remove(myName);
-                    logFile.write("\nClient \"" + myName + "\" came out at " + date.format(new Date()));
-                    logFile.flush();
-                    break;
-                } else if (line.contains("@sendfile")) {//отправляем файл
-                    sendAll(line);//переправляем всем
-                    sendAll(myName);
-                    long size = in.readLong();
-                    System.out.println(" size = " + size);
-                    //рассылаем всем размер
-                    for (Socket s : allClients.values())
-                        if (!s.equals(socket))
-                            new DataOutputStream(s.getOutputStream()).writeLong(size);
+                try {
+                    String line;
+                    line = in.readUTF();
+                    if (line.contains("@quit")) {
+                        sendAll(myName + " came out");
+                        allClients.remove(myName);
+                        logFile.write("\nClient \"" + myName + "\" came out at " + date.format(new Date()));
+                        logFile.flush();
+                        break;
 
-                    byte[] buf = new byte[1024];
-                    int count, all = 0;
-                    double limit = Math.ceil((double) size / 1024);
-                    System.out.println("limit = " + (int)limit);
-                    for (int i = 0; i < (int)limit; i++) {
-                        count = in.read(buf);
-                        all += count;
-                        System.out.println(" count = " + count + "  all = " + all + "  i = " + i);
+                    } else if (line.contains("@sendfile")) {//отправляем файл
+                        sendAll(line);//переправляем всем
+                        sendAll(myName);
+                        long size = in.readLong();
+                        System.out.println(" size = " + size);
+                        //рассылаем всем размер
                         for (Socket s : allClients.values())
                             if (!s.equals(socket))
-                                try {
-                                    //посылаем всем файл по частям
-                                    new DataOutputStream(s.getOutputStream()).write(buf, 0, count);
-                                } catch (SocketException z) {
-                                    System.out.println(" can't send file ");
-                                    z.printStackTrace();
-                                    break;
-                                }
-                    }
-                    System.out.println(" send " + all + " bytes");
-                    //отсылаем всем имя отправителя
-                   // sendAll(myName); System.out.println("send name");
-                } else sendAll(myName + ": " + line);
+                                new DataOutputStream(s.getOutputStream()).writeLong(size);
+
+                        byte[] buf = new byte[65536];
+                        int count;
+                        long all = 0;
+                        double limit = Math.ceil((double) size / 65536);
+                        System.out.println("limit = " + (int) limit);
+                        for (int i = 0; i < (int) limit; i++) {
+                            count = in.read(buf);
+                            all += count;
+                            System.out.println(" count = " + count + "  all = " + all + "  i = " + i);
+                            for (Socket s : allClients.values())
+                                if (!s.equals(socket))
+                                    try {
+                                        //посылаем всем файл по частям
+                                        new DataOutputStream(s.getOutputStream()).write(buf, 0, count);
+                                    } catch (SocketException z) {
+                                        System.out.println(" can't send file ");
+                                        z.printStackTrace();
+                                        break;
+                                    }
+                        }
+                        System.out.println(" sent " + all + " bytes");
+                        logFile.write("\nClient \"" + myName + "\" sent a file (" + all + " bytes) at " + date.format(new Date()));
+
+                    } else sendAll(myName + ": " + line);
+
+                }catch (EOFException e){
+                    System.out.println("Something went wrong");
+                    e.printStackTrace();
+                }catch (IOException e) {
+                    System.out.println("Error");
+                    e.printStackTrace();
+                }
             }
-        } catch (IOException e) {//socket closed
+        } catch (IOException e) {
+            System.out.println("Fatal error");
             e.printStackTrace();
         }
     }
@@ -103,7 +104,8 @@ public class ServerClient extends Thread {
                 try {
                     new DataOutputStream(s.getOutputStream()).writeUTF(line);
                 } catch (IOException e) {
-                    // e.printStackTrace();
+                    System.out.println("Error while sending \"" + line + "\" to " + socket);
+                     e.printStackTrace();
                 }
     }
 }

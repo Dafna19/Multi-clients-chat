@@ -26,7 +26,7 @@ public class Server {
     public Server(int port) throws IOException {
         ss = new ServerSocket(port);
         logFile = new FileWriter("serverLog.txt", true);//дозаписывает в конец
-        logFile.write("\n\nServer started at " + date.format(new Date()));
+        logFile.write("\n\nServer started at ip: " + ss.getInetAddress() + " port: " + port + " at " + date.format(new Date()));
         logFile.flush();
       //  new Thread(new Service()).start();////
 
