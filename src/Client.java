@@ -12,7 +12,7 @@ import java.util.Scanner;
 //java Client port(0) ipAddr(1) dir(2)
 public class Client {
     private Socket socket;
-    private String name;
+    private String name = "client";
     private DataInputStream in;
     private DataOutputStream out;
     private BufferedReader keyboard;
@@ -40,7 +40,7 @@ public class Client {
         try {
             socket.close();
         } catch (IOException e) {
-           // e.printStackTrace();
+            // e.printStackTrace();
         }
 
     }
@@ -50,9 +50,10 @@ public class Client {
             System.out.println("write your directory:");
             directory = keyboard.readLine();
             System.out.println("my directory is " + directory);
-            System.out.println("write your login:");
-            String line = keyboard.readLine();
-            out.writeUTF(line);
+
+            System.out.println("write your name:");
+            name = keyboard.readLine();
+            out.writeUTF(name);
             listener.start();
             System.out.println("Welcome!");
 
@@ -69,13 +70,31 @@ public class Client {
                 if (line.contains("@sendfile")) {
                     String fileName = line.substring("@sendfile".length() + 1);
                     File file = new File(directory + fileName);
-                    sendFile(file);
+                    try {
+                        FileInputStream inputFile = new FileInputStream(file);
+                        out.writeUTF(line); // отсылаем серверу, если такой файл есть
+                        out.flush();
+                        out.writeLong(file.length());//отправляем размер
+                        byte[] buf = new byte[65536];
+                        int count;
+                        while ((count = inputFile.read(buf)) != -1) {
+                            out.write(buf, 0, count);//отсылаем файл
+                            out.flush();
+                        }
+                        System.out.println("The file was sent");
+                        inputFile.close();
+                    } catch (FileNotFoundException n) {
+                        System.out.println("There is no such file");
+                    }
 
                 } else if (line.contains("@listdirectory")) {//проход по директории
                     newDir = directory;
+                    System.out.println("newDir: " + newDir);
                     File dir = new File(directory);
                     readDirectory(dir);
-
+                } else if (line.contains("@directory")) {
+                    out.writeUTF(line);
+                    out.flush();
                 } else {
                     out.writeUTF(line); // отсылаем серверу
                     out.flush();
@@ -113,9 +132,9 @@ public class Client {
         File[] list = folder.listFiles();//список того, что в папке folder
         for (File file : list) {
             if (file.isDirectory()) {
+                int end = newDir.length();
                 newDir = newDir + file.getName() + "/";
                 readDirectory(file);//рекурсия
-                int end = newDir.indexOf(file.getName());
                 newDir = newDir.substring(0, end);
             }
             //System.out.println(newDir + file.getName());
@@ -144,6 +163,20 @@ public class Client {
                         String name = in.readUTF();
                         long size = in.readLong();
                         System.out.println("receiving file " + fileName + " size = " + size);
+
+                        int end = fileName.lastIndexOf("/");
+                        String nameDir = fileName.substring(0, end);
+                        File sample = new File(directory + nameDir);
+                        if (sample.isDirectory())
+                            System.out.println("have " + nameDir);
+                        else {
+                            System.out.println("do not have " + nameDir);
+                            makeDir(directory + nameDir + "/");
+                            //sample.mkdirs();
+                            System.out.println("created " + nameDir);
+                        }
+
+
                         byte[] buf = new byte[65536];
                         FileOutputStream outputFile = new FileOutputStream(directory + fileName);
                         int count;
@@ -163,6 +196,10 @@ public class Client {
                         }
                         System.out.println("received \"" + fileName + "\" (" + all + " bytes) from " + name);
                         outputFile.close();
+                    } else if (line.contains("@directory")) {
+                        String dirName = line.substring("@directory".length() + 1);
+                        File dir = new File(directory + dirName);
+                        dir.mkdir();
                     } else
                         System.out.println(line);
                 }
@@ -173,6 +210,23 @@ public class Client {
                 socketClose();
             }
         }
+
+        private void makeDir(String path) {
+            int end = 0;
+            while(true) {
+                end = path.indexOf("/", end);
+                if(end == -1)
+                    break;
+                String nameDir = path.substring(0, end);
+                System.out.println(nameDir);
+                File folder = new File(nameDir);
+                if (!folder.isDirectory()) {//если такой папки нет
+                    folder.mkdir();
+                }
+                end++;
+            }
+        }
+
     }
 
 }

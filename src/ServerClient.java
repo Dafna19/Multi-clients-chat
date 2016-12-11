@@ -61,10 +61,10 @@ public class ServerClient extends Thread {
                         byte[] buf = new byte[65536];
                         int count;
                         long all = 0;
-                        double limit = Math.ceil((double) size / 65536);
+                        double limit = Math.ceil((double) size / 65536);//количество необходимых пакетов
                         System.out.println("limit = " + (int) limit);
                         for (int i = 0; i < (int) limit; i++) {
-                            count = in.read(buf);
+                            count = in.read(buf);//сколько прочитали в пакете
                             all += count;
                             System.out.println(" count = " + count + "  all = " + all + "  i = " + i);
                             for (Socket s : allClients.values())
@@ -81,7 +81,11 @@ public class ServerClient extends Thread {
                         System.out.println(" sent " + all + " bytes");
                         logFile.write("\nClient \"" + myName + "\" sent a file (" + all + " bytes) at " + date.format(new Date()));
 
-                    } else sendAll(myName + ": " + line);
+                    }else if (line.contains("@directory")){
+                        sendAll(line);
+                    }
+
+                    else sendAll(myName + ": " + line);
 
                 }catch (EOFException e){
                     System.out.println("Something went wrong");

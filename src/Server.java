@@ -43,7 +43,6 @@ public class Server {
             try {
                 Socket socket = ss.accept();    //подсоединение
                 System.out.println("New client");
-                logFile.flush();
                 ServerClient client = new ServerClient(socket, clients, logFile);
                 client.start(); //запускаем
             } catch (IOException e) {
