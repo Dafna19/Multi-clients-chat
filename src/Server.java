@@ -28,7 +28,7 @@ public class Server {
         logFile = new FileWriter("serverLog.txt", true);//дозаписывает в конец
         logFile.write("\n\nServer started at ip: " + ss.getInetAddress() + " port: " + port + " at " + date.format(new Date()));
         logFile.flush();
-      //  new Thread(new Service()).start();////
+        new Thread(new Service()).start();////
 
     }
 

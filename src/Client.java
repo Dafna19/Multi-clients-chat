@@ -69,7 +69,9 @@ public class Client {
 
                 if (line.contains("@sendfile")) {
                     String fileName = line.substring("@sendfile".length() + 1);
-                    File file = new File(directory + fileName);
+                    sendFile(fileName);
+
+                   /* File file = new File(directory + fileName);
                     try {
                         FileInputStream inputFile = new FileInputStream(file);
                         out.writeUTF(line); // отсылаем серверу, если такой файл есть
@@ -85,13 +87,28 @@ public class Client {
                         inputFile.close();
                     } catch (FileNotFoundException n) {
                         System.out.println("There is no such file");
-                    }
+                    }*/
 
                 } else if (line.contains("@listdirectory")) {//проход по директории
                     newDir = directory;
-                    System.out.println("newDir: " + newDir);
                     File dir = new File(directory);
                     readDirectory(dir);
+                    for (String letter : files) {
+                        File envelope = new File(letter);
+                        String innerLetter = letter.substring(directory.length());//чтобы убрать "from/"
+                        if (envelope.isFile())
+                            sendFile(innerLetter);
+                        else if (envelope.isDirectory()) {
+                            out.writeUTF("@directory " + innerLetter);
+                            out.flush();
+                        }
+                    }
+/*                    String wait = keyboard.readLine();//просто время пока я удалю папку
+
+                    System.out.println("\nreading 'files':");
+                    for(String s : files){
+                        System.out.println(s + " f?-" + new File(s).isFile() + " d?-" + new File(s).isDirectory());
+                    }*/
                 } else if (line.contains("@directory")) {
                     out.writeUTF(line);
                     out.flush();
@@ -109,10 +126,11 @@ public class Client {
         }
     }
 
-    private void sendFile(File file) throws IOException {
+    private void sendFile(String fileName) throws IOException {
+        File file = new File(directory + fileName);
         try {
             FileInputStream inputFile = new FileInputStream(file);
-            out.writeUTF("@sendfile " + file.getName()); // отсылаем серверу, если такой файл есть
+            out.writeUTF("@sendfile " + fileName); // отсылаем серверу, если такой файл есть
             out.flush();
             out.writeLong(file.length());//отправляем размер
             byte[] buf = new byte[65536];
@@ -137,7 +155,7 @@ public class Client {
                 readDirectory(file);//рекурсия
                 newDir = newDir.substring(0, end);
             }
-            //System.out.println(newDir + file.getName());
+            System.out.println(newDir + file.getName());
             files.add(newDir + file.getName());
 
         }
@@ -162,20 +180,16 @@ public class Client {
                         String fileName = line.substring("@sendfile".length() + 1);
                         String name = in.readUTF();
                         long size = in.readLong();
-                        System.out.println("receiving file " + fileName + " size = " + size);
+                        long testSize = size;//для получения точного размера из потока
+                        System.out.println("receiving file " + fileName + " size = " + size + " bytes");
 
                         int end = fileName.lastIndexOf("/");
-                        String nameDir = fileName.substring(0, end);
-                        File sample = new File(directory + nameDir);
-                        if (sample.isDirectory())
-                            System.out.println("have " + nameDir);
-                        else {
-                            System.out.println("do not have " + nameDir);
-                            makeDir(directory + nameDir + "/");
-                            //sample.mkdirs();
-                            System.out.println("created " + nameDir);
+                        if (end != -1) { //если файл не в корневой папке, а в подпапке
+                            String nameDir = fileName.substring(0, end);
+                            File sample = new File(directory + nameDir);
+                            if (!sample.isDirectory())//такой директории нет
+                                makeDir(directory + nameDir + "/");
                         }
-
 
                         byte[] buf = new byte[65536];
                         FileOutputStream outputFile = new FileOutputStream(directory + fileName);
@@ -185,26 +199,30 @@ public class Client {
                         System.out.print("limit = " + (int) limit + "; ");
                         //for (int i = 0; i < (int) limit; i++) {
                         while (all < size) {
-                            count = in.read(buf);
+                            int readSize = (int) Math.min(testSize, buf.length);//чтобы не считать боьше, чем нужно
+                            count = in.read(buf, 0, readSize);
                             all += count;
+                            testSize -= count;
                             outputFile.write(buf, 0, count);//записываем файл
                             outputFile.flush();
                             if (all == size) {
-                                System.out.println("received full size");
+                                System.out.println("received FULL size");
                                 break;
                             }
                         }
                         System.out.println("received \"" + fileName + "\" (" + all + " bytes) from " + name);
                         outputFile.close();
+
                     } else if (line.contains("@directory")) {
                         String dirName = line.substring("@directory".length() + 1);
-                        File dir = new File(directory + dirName);
-                        dir.mkdir();
+                        // File dir = new File(directory + dirName);
+                        //dir.mkdir();
+                        makeDir(directory + dirName + "/");
                     } else
                         System.out.println(line);
                 }
             } catch (Exception e) {
-                //e.printStackTrace();
+                e.printStackTrace();
                 socketClose();
             } finally {
                 socketClose();
@@ -213,12 +231,12 @@ public class Client {
 
         private void makeDir(String path) {
             int end = 0;
-            while(true) {
+            while (true) {
                 end = path.indexOf("/", end);
-                if(end == -1)
+                if (end == -1)
                     break;
                 String nameDir = path.substring(0, end);
-                System.out.println(nameDir);
+                //System.out.println(nameDir);
                 File folder = new File(nameDir);
                 if (!folder.isDirectory()) {//если такой папки нет
                     folder.mkdir();

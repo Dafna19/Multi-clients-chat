@@ -50,23 +50,39 @@ public class ServerClient extends Thread {
 
                     } else if (line.contains("@sendfile")) {//отправляем файл
                         sendAll(line);//переправляем всем
+                        //хотя в принципе, отвалившийся должен удалиться уже здесь
                         sendAll(myName);
                         long size = in.readLong();
+                        long testSize = size;//для получения точного размера из потока
                         System.out.println(" size = " + size);
                         //рассылаем всем размер
                         for (Socket s : allClients.values())
-                            if (!s.equals(socket))
-                                new DataOutputStream(s.getOutputStream()).writeLong(size);
+                            if (!s.equals(socket)) {//если кто-то плохо вышел, здесь упадёт
+                                try {
+                                    new DataOutputStream(s.getOutputStream()).writeLong(size);
+                                }catch (IOException e){
+                                    for(String candidate : allClients.keySet()){
+                                        if(allClients.get(candidate).equals(s)) {
+                                            allClients.remove(candidate);
+                                            System.out.println(candidate + " is removed");
+                                        }//теперь не упадёт
+                                    }
+                                }
+                            }
 
                         byte[] buf = new byte[65536];
                         int count;
                         long all = 0;
                         double limit = Math.ceil((double) size / 65536);//количество необходимых пакетов
                         System.out.println("limit = " + (int) limit);
-                        for (int i = 0; i < (int) limit; i++) {
-                            count = in.read(buf);//сколько прочитали в пакете
+                        //for (int i = 0; i < (int) limit; i++) {
+                        int i = 0;
+                        while (true){
+                            int readSize = (int)Math.min(testSize, buf.length);//чтобы не считать боьше, чем нужно
+                            count = in.read(buf, 0, readSize);//сколько прочитали в пакете
                             all += count;
-                            System.out.println(" count = " + count + "  all = " + all + "  i = " + i);
+                            testSize -= count;
+                            System.out.println(" count = " + count + "  for read = " + readSize + "  all = " + all + "  i = " + i + "  testSize = " + testSize);
                             for (Socket s : allClients.values())
                                 if (!s.equals(socket))
                                     try {
@@ -77,6 +93,9 @@ public class ServerClient extends Thread {
                                         z.printStackTrace();
                                         break;
                                     }
+                            if(testSize == 0)
+                                break;
+                            i++;
                         }
                         System.out.println(" sent " + all + " bytes");
                         logFile.write("\nClient \"" + myName + "\" sent a file (" + all + " bytes) at " + date.format(new Date()));
@@ -91,8 +110,9 @@ public class ServerClient extends Thread {
                     System.out.println("Something went wrong");
                     e.printStackTrace();
                 }catch (IOException e) {
-                    System.out.println("Error");
-                    e.printStackTrace();
+                   // System.out.println("Error");
+                   // e.printStackTrace();
+                   // System.err.println(e);
                 }
             }
         } catch (IOException e) {
@@ -108,8 +128,17 @@ public class ServerClient extends Thread {
                 try {
                     new DataOutputStream(s.getOutputStream()).writeUTF(line);
                 } catch (IOException e) {
-                    System.out.println("Error while sending \"" + line + "\" to " + socket);
-                     e.printStackTrace();
+                    System.out.println("Error while sending \"" + line + "\" to " + s);
+                    System.out.println("Connection with client is broken");
+                    //если кто-то плохо вышел - удалим его
+                    for(String candidate : allClients.keySet()){
+                        if(allClients.get(candidate).equals(s)) {
+                            allClients.remove(candidate);
+                            System.out.println(candidate + " is removed");
+                        }
+                    }
+
+
                 }
     }
 }
