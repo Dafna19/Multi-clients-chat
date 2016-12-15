@@ -181,7 +181,7 @@ public class Client {
                         String name = in.readUTF();
                         long size = in.readLong();
                         long testSize = size;//для получения точного размера из потока
-                        System.out.println("receiving file " + fileName + " size = " + size + " bytes");
+                        System.out.println("\nreceiving file " + fileName + " size = " + size + " bytes");
 
                         int end = fileName.lastIndexOf("/");
                         if (end != -1) { //если файл не в корневой папке, а в подпапке
@@ -202,7 +202,9 @@ public class Client {
                             int readSize = (int) Math.min(testSize, buf.length);//чтобы не считать боьше, чем нужно
                             count = in.read(buf, 0, readSize);
                             all += count;
-                            testSize -= count;
+
+                            testSize -= count;//зачем здесь??
+
                             outputFile.write(buf, 0, count);//записываем файл
                             outputFile.flush();
                             if (all == size) {
@@ -222,7 +224,7 @@ public class Client {
                         System.out.println(line);
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                //e.printStackTrace();
                 socketClose();
             } finally {
                 socketClose();

@@ -93,7 +93,7 @@ public class ServerClient extends Thread {
                                         z.printStackTrace();
                                         break;
                                     }
-                            if(testSize == 0)
+                            if(all == size)
                                 break;
                             i++;
                         }
